@@ -8,10 +8,14 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+<<<<<<< HEAD
   "description": "",
   "dependencies": {
     "dotenv": "^16.4.7",
     "google-auth-library": "^9.15.1",
     "googleapis": "^146.0.0"
   }
+=======
+  "description": ""
+>>>>>>> c67506b (Initial commit1)
 }
