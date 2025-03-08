@@ -1,8 +1,8 @@
 const { sendMessage } = require('../utils/whatsapp');
 const { addRow } = require('../utils/googleSheets');
 
-// Function to handle "F_ID" messages
-const handleFId = async (message) => {
+// Function to handle default messages
+const handleDefault = async (message) => {
   const userNumber = message.from;
   const messageText = message.text.body;
 
@@ -10,8 +10,8 @@ const handleFId = async (message) => {
     // Log incoming message
     await addRow(userNumber, messageText, 0);
 
-    // Send response
-    const responseMessage = 'F_ID received!';
+    // Send default response
+    const responseMessage = 'Thank you for your message!';
     await sendMessage(userNumber, responseMessage);
 
     // Log outgoing message
@@ -19,10 +19,10 @@ const handleFId = async (message) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'F_ID response sent' }),
+      body: JSON.stringify({ message: 'Default response sent' }),
     };
   } catch (error) {
-    console.error('Error in fIdHandler:', error.message);
+    console.error('Error in handleDefault:', error.message);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal Server Error' }),
@@ -30,4 +30,4 @@ const handleFId = async (message) => {
   }
 };
 
-module.exports = { handleFId };
+module.exports = { handleDefault };

@@ -7,9 +7,10 @@
     "test": "node test.js"
   },
   "dependencies": {
+    "aws-sdk": "^2.1692.0",
     "dotenv": "^16.0.0",
-    "googleapis": "^110.0.0",
-    "google-auth-library": "^8.0.0"
+    "google-auth-library": "^8.0.0",
+    "googleapis": "^110.0.0"
   },
   "type": "commonjs"
 }
