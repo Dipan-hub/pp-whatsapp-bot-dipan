@@ -11,7 +11,7 @@ const handleFId = async (message) => {
     await addRow(userNumber, messageText, 0);
 
     // Send response
-    const responseMessage = 'F_ID received!';
+    const responseMessage = 'F_ID received! Sunna Bhai !! HOgyaaa apna kaam krna yaar !!';
     await sendMessage(userNumber, responseMessage);
 
     // Log outgoing message
