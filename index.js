@@ -1,96 +1,96 @@
-require('dotenv').config();
-const { handleHello } = require('./handlers/helloHandler');
-const { handleFId } = require('./handlers/fIdHandler');
-const { handleDefault } = require('./handlers/defaultHandler');
+require("dotenv").config();
+const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
-const processedMessages = new Set(); // Store processed message IDs to prevent duplicates
+// Configure AWS SQS
+const sqs = new SQSClient({ region: "ap-south-1" });
+const processedMessages = new Set();
+const QUEUE_URL = "https://sqs.ap-south-1.amazonaws.com/245516292058/WhatsAppQueue.fifo";
 
-exports.handler = async (event) => {
-  console.time('Execution Time');
-  console.log('Event Received:', JSON.stringify(event));
+// Main handler function
+const handler = async (event) => {
+  console.time("Execution Time");
+  console.log("Event Received:", JSON.stringify(event));
 
-  const httpMethod = event.requestContext?.http?.method || event.httpMethod;
-  let response;
+  const httpMethod = event.requestContext?.http?.method || event.httpMethod; // Support both Lambda & local testing
 
   try {
-    if (httpMethod === 'GET') {
+    if (httpMethod === "GET") {
       const queryParams = event.queryStringParameters || {};
-      if (queryParams['hub.mode'] === 'subscribe' && queryParams['hub.verify_token'] === process.env.VERIFY_TOKEN) {
-        console.log('WEBHOOK VERIFIED!');
-        return {
-          statusCode: 200,
-          body: queryParams['hub.challenge'],
-          headers: { 'Content-Type': 'text/plain' },
-        };
+      if (queryParams["hub.mode"] === "subscribe" && queryParams["hub.verify_token"] === process.env.VERIFY_TOKEN) {
+        console.log("WEBHOOK VERIFIED!");
+        return { statusCode: 200, body: queryParams["hub.challenge"], headers: { "Content-Type": "text/plain" } };
       } else {
-        console.log('WEBHOOK VERIFICATION FAILED!');
-        return { statusCode: 403, body: 'Verification failed' };
+        console.log("WEBHOOK VERIFICATION FAILED!");
+        return { statusCode: 403, body: "Verification failed" };
       }
     }
 
-    if (httpMethod === 'POST') {
-      const body = JSON.parse(event.body || '{}');
-      console.log('Parsed Body:', body);
+    if (httpMethod === "POST") {
+      const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
+      console.log("Parsed Body:", body);
 
       const entry = body.entry?.[0];
-      if (!entry) throw new Error('No entry found');
+      if (!entry) throw new Error("No entry found");
 
       const changes = entry.changes?.[0];
-      if (!changes) throw new Error('No changes found');
+      if (!changes) throw new Error("No changes found");
 
       const value = changes.value;
-      
-      if (value.statuses) {
-        console.log('Message status update:', value.statuses[0]);
-        return { statusCode: 200, body: JSON.stringify({ message: 'Status update processed' }) };
-      }
-
       if (value.messages) {
         const message = value.messages[0];
         const messageId = message.id;
 
-        // Prevent duplicate processing
         if (processedMessages.has(messageId)) {
-          console.log('Duplicate message detected, ignoring.');
-          return { statusCode: 200, body: JSON.stringify({ message: 'Duplicate ignored' }) };
+          console.log("Duplicate message detected, ignoring.");
+          return { statusCode: 200, body: JSON.stringify({ message: "Duplicate ignored" }) };
         }
         processedMessages.add(messageId);
 
-        const messageText = message.text?.body;
-        if (!messageText) throw new Error('No message text found');
+        const sqsParams = {
+          MessageBody: JSON.stringify({
+            messageId: message.id,
+            sender: message.from,
+            messageText: message.text?.body || "",
+            timestamp: message.timestamp,
+            requestId: event.requestContext?.requestId || "unknown"
+          }),
+          QueueUrl: QUEUE_URL,
+          MessageGroupId: "whatsapp-messages",
+          MessageDeduplicationId: message.id,
+        };
 
-        const lowerText = messageText.toLowerCase().trim();
+        await sqs.send(new SendMessageCommand(sqsParams));
+        console.log("Message sent to SQS:", messageId);
 
-        // Determine the handler
-        let handler;
-        if (lowerText.includes('f_id')) {
-          console.log('Routing to handleFId');
-          handler = handleFId;
-        } else if (['hello', 'hi'].includes(lowerText)) {
-          console.log('Routing to handleHello');
-          handler = handleHello;
-        } else {
-          console.log('Routing to handleDefault');
-          handler = handleDefault;
-        }
-
-        // Execute handler with timeout failsafe
-        const result = await Promise.race([
-          handler(message),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Function timeout!')), 2500))
-        ]);
-
-        return { statusCode: 200, body: JSON.stringify(result) };
+        return { statusCode: 200, body: JSON.stringify({ message: "Message sent to queue" }) };
       }
 
-      throw new Error('Unsupported event type');
+      throw new Error("Unsupported event type");
     }
 
-    return { statusCode: 200, body: JSON.stringify('Message processed') };
+    return { statusCode: 200, body: JSON.stringify("Message processed") };
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   } finally {
-    console.timeEnd('Execution Time');
+    console.timeEnd("Execution Time");
   }
 };
+
+// Auto-run locally, but still works in AWS Lambda
+if (require.main === module) {
+  (async () => {
+    const testEvent = {
+      requestContext: { http: { method: "POST" } },
+      body: JSON.stringify({
+        entry: [{ changes: [{ value: { messages: [{ id: "test-message-id-123", from: "918917602924", text: { body: "Hello, bot!" } }] } }] }],
+      }),
+    };
+
+    console.log("Testing webhook locally...");
+    const response = await handler(testEvent);
+    console.log("Local Test Response:", response);
+  })();
+}
+
+module.exports = { handler }; // Export for AWS Lambda

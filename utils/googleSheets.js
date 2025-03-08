@@ -19,7 +19,7 @@ const addRow = async (phone, message, isOutbound) => {
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: 'Sheet1!A:D', // Hardcoded range
+      range: 'Sheet1!A:F', // Hardcoded range
       valueInputOption: 'RAW',
       resource: { values },
     });
